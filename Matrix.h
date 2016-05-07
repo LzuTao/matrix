@@ -33,8 +33,6 @@ public:
 
 	~CMatrix();
 
-
 };
-
 
 #endif // MATRIX_H
