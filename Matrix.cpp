@@ -1,9 +1,16 @@
 #include <iomanip>
 #include <cstring>
 #include "Matrix.h"
+#include "Vector.h"
 
-const short WIDTH = 15;
+const short WIDTH = 10;
 const short PRECISION = 3;
+
+CMatrix operator * (const CMatrix& m_Mat, const CVector& m_Vec);
+
+CMatrix::CMatrix(): matrix(NULL), row(0), col(0),
+	determinant(NULL), same(NULL), unitMatrix(NULL){
+}
 
 CMatrix::CMatrix(short i = 0, short j = 0): matrix(NULL), row(i), col(j),
 	determinant(NULL), same(NULL), unitMatrix(NULL) {
@@ -168,6 +175,7 @@ double CMatrix::det() {
 	}
 
 	if ((matrix == NULL) || (row != col)) {
+		std::cout << "Error" << std::flush;
 		return 0;
 	}
 
@@ -194,15 +202,18 @@ double CMatrix::det() {
 
 	short i, j, k;
 
-	same = new double*[col];
-	unitMatrix = new double*[col];
 
 	// Create the same matrix of class
+	if (same == NULL) {
+		same = new double*[col];
+		for (i = 0; i < col; ++i) {
+			same[i] = new double[col];
+			memcpy(same[i], matrix[i], col * sizeof(double));
+		}
+	}
 	// Create unitMatrix with the same level
+	unitMatrix = new double*[col];
 	for (i = 0; i < col; ++i) {
-		same[i] = new double[col];
-		memcpy(same[i], matrix[i], col * sizeof(double));
-
 		unitMatrix[i] = new double[col];
 		memset(unitMatrix[i], 0, col * sizeof(double));
 		unitMatrix[i][i] = 1;
@@ -309,28 +320,30 @@ CMatrix CMatrix::inverse() {
 		double temp;
 
 		// Creating No. 1 on the main diagonal of the matrix
-		for (i = 0; i < col; ++i) {
-			temp = same[i][i];
-			if (temp != 1) {
-				for (j = col - 1; j >= i; --j) {
-					same[i][j] /= temp;
-				}
+		if (!isUnitMatrix()) {
+			for (i = 0; i < col; ++i) {
+				temp = same[i][i];
+				if (temp != 1) {
+					for (j = col - 1; j >= i; --j) {
+						same[i][j] /= temp;
+					}
 
-				for (j = 0; j < col; ++j) {
-					unitMatrix[i][j] /= temp;
+					for (j = 0; j < col; ++j) {
+						unitMatrix[i][j] /= temp;
+					}
 				}
 			}
-		}
 
-		// Starting Jordan's process
-		short k;
-		for (k = col - 1; k > 0; --k) {
-			for (i = k - 1; i >= 0; --i) {
-				temp = - same[i][k] / same[k][k];
-				same[i][k] = 0;
+			// Starting Jordan's process
+			short k;
+			for (k = col - 1; k > 0; --k) {
+				for (i = k - 1; i >= 0; --i) {
+					temp = - same[i][k] / same[k][k];
+					same[i][k] = 0;
 
-				for (j = col - 1; j >= 0; --j) {
-					unitMatrix[i][j] += temp * unitMatrix[k][j];
+					for (j = col - 1; j >= 0; --j) {
+						unitMatrix[i][j] += temp * unitMatrix[k][j];
+					}
 				}
 			}
 		}
@@ -344,6 +357,37 @@ CMatrix CMatrix::inverse() {
 	}
 
 	return CMatrix(row, row);
+}
+
+bool CMatrix::isUnitMatrix() {
+	if (row != col && row <= 0) {
+		return false;
+	}
+
+	// Create the same matrix
+	short i;
+	if (same == NULL) {
+		same = new double*[col];
+		for (i = 0; i < col; ++i) {
+			same[i] = new double[col];
+			memcpy(same[i], matrix[i], col * sizeof(double));
+		}
+	}
+
+	short j;
+	for (i = 0; i < col; ++i) {
+		for (j = 0; j < col; ++j) {
+			if (i != j && same[i][j] != 0) {
+				return false;
+			}
+		}
+
+		if (same[i][i] != 1) {
+			return false;
+		}
+	}
+
+	return true;
 }
 
 std::istream& operator >> (std::istream& is, const CMatrix& what) {
@@ -364,14 +408,15 @@ std::ostream& operator << (std::ostream& os, const CMatrix& what) {
 		short val2 = what.col - 1;
 
 		os << "--" << std::setfill(' ') << std::setw(val1) << "--" << std::endl;
+		os << std::fixed << std::setprecision(PRECISION);
 		short i, j;
 		for (i = 0; i < what.row; ++i) {
 			os << "|";
 			for (j = 0; j < val2; ++j) {
-				os << std::setw(WIDTH) << std::setprecision(PRECISION) << what.matrix[i][j];
+				os << std::setw(WIDTH) << what.matrix[i][j];
 			}
 
-			os << std::setw(WIDTH) << std::setprecision(PRECISION) << what.matrix[i][val2] << '|' << std::endl;
+			os << std::setw(WIDTH) << what.matrix[i][val2] << '|' << std::endl;
 		}
 
 		os << "--" << std::setfill(' ') << std::setw(val1) << "--" << std::endl;
@@ -406,4 +451,40 @@ CMatrix::~CMatrix() {
 		delete[] unitMatrix;
 	}
 	delete determinant;
+}
+
+double CMatrix::getMat(short i, short j) const {
+	if (matrix != NULL && i >= 0 && j >= 0 && i < row && j < col) {
+		return matrix[i][j];
+	}
+
+	std::cout << "Error" << std::flush;
+	return 0;
+}
+
+short CMatrix::getRow() const {
+	return row;
+}
+
+short CMatrix::getCol() const {
+	return col;
+}
+
+void CMatrix::setMat(short i, short j, double k) {
+	if (matrix != NULL && i >= 0 && j >= 0 && i < row && j < col) {
+		matrix[i][j] = k;
+	}
+}
+
+CMatrix operator * (const CMatrix& m_Mat, const CVector& m_Vec) {
+	CMatrix newMat(m_Mat.getRow(), m_Vec.getDim());
+	if (m_Mat.getCol() == 1) {
+		short i, k;
+		for (i = 0; i < m_Mat.getRow(); ++i) {
+			for (k = 0; k < m_Vec.getDim(); ++k) {
+				newMat.setMat(i, k, newMat.getMat(i, k) + m_Mat.getMat(i, 0) * m_Vec.getVec(k));
+			}
+		}
+	}
+	return newMat;
 }
